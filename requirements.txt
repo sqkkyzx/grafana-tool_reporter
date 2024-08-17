@@ -1,0 +1,6 @@
+playwright
+httpx
+pandas
+openpyxl
+schedule
+PyYAML
