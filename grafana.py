@@ -1,13 +1,11 @@
-import asyncio
-from typing import List, Optional
+from typing import List, Optional, Literal
 import httpx
 import time
-import logging
-from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright
 from pathlib import Path
-import csv
-import os
 import pandas
+import re
+from notifier.base import BaseNotifier
 
 
 class Grafana:
@@ -25,25 +23,16 @@ class Grafana:
 
 class Dashboard:
     def __init__(self, grafana: Grafana, uid):
-        self.uid = uid
-
         self.public_url = grafana.public_url
         self.headers = grafana.headers
-
+        self.uid = uid
         self.title: Optional[str] = None
-        self.tags: Optional[List[str]] = None
-        self.timezone: Optional[str] = None
-        self.schemaVersion: Optional[int] = None
-        self.version: Optional[int] = None
-        self.isStarred: Optional[bool] = None
-        self.path: Optional[str] = None
-        self.folderId: Optional[int] = None
-        self.folderUid: Optional[str] = None
+        self.url: Optional[str] = None
         self.slug: Optional[str] = None
+
+        self.tags: Optional[List[str]] = None
         self.query: Optional[str] = 'kiosk'
         self.panels: Optional[List[Panel]] = None
-
-        self.dashboard_url: Optional[str] = None
 
         self.get_info()
 
@@ -54,183 +43,197 @@ class Dashboard:
         ).json()
 
         dashboard = response.get('dashboard', {})
-
         meta = response.get('meta', {})
 
-        self.isStarred = meta.get('isStarred')
-        self.path = meta.get('url')
-        self.folderId = meta.get('folderId')
-        self.folderUid = meta.get('folderUid')
-        self.slug = meta.get('slug')
-
-        self.dashboard_url: str = f'{self.public_url}{self.path}?{self.query}'
-
         self.title = dashboard.get('title')
-        self.tags = dashboard.get('tags')
-        self.timezone = dashboard.get('timezone')
-        self.schemaVersion = dashboard.get('schemaVersion')
-        self.version = dashboard.get('version')
+        self.url: str = f'{self.public_url}{meta.get('url')}?{self.query}'
+        self.slug = meta.get('slug')
         self.panels = [Panel(self, panel) for panel in dashboard.get('panels', [])]
 
-    def set_query(self, query_string: str):
-        self.query = query_string
+    def panel(self, uid):
+        for p in self.panels:
+            if p.uid == uid:
+                return p
+        return None
 
-    def renderPNG(self, width: int = 792):
-        filepath = f"files/{self.title}_{str(time.time_ns())}.png"
-        asyncio.run(renderPNG(self.dashboard_url, self.headers, filepath, width))
-        is_success = check_path(filepath)
-        if is_success:
-            return filepath
-        else:
-            return None
-
-    def renderPDF(self, width: int = 792):
-        filepath = f"files/{self.title}_{str(time.time_ns())}.pdf"
-        asyncio.run(renderPDF(self.dashboard_url, self.headers, filepath, width))
-        is_success = check_path(filepath)
-        if is_success:
-            return filepath
-        else:
-            return None
+    def set_query(self, query_string: str | None = None):
+        if query_string:
+            self.query = query_string
+        return self
 
     async def creatShortUrl(self):
         uid = httpx.post(
             url=f'{self.public_url}/api/short-urls',
             headers=self.headers,
-            json={
-                "path": self.path.replace('/d', 'd')
-            }
+            json={"path": self.url.replace(f'{self.public_url}/', '')}
         ).json().get('uid')
         return f'{self.public_url}/goto/{uid}'
 
 
 class Panel:
     def __init__(self, dashboard: Dashboard, data):
-        self.uid = data.get('id')
-        self.title = data.get('title')
-        self.dashboard_title = dashboard.title
+        self.public_url = dashboard.public_url
         self.headers = dashboard.headers
-        self.panel_url = f'{dashboard.dashboard_url}&viewPanel={self.uid}'
+        self.uid = str(data.get('id'))
+        self.title = dashboard.title + '-' + data.get('title')
+        self.url = f'{dashboard.url}&viewPanel={self.uid}'
+        self.slug: Optional[str] = dashboard.slug
 
-    def renderPDF(self, width: int = 792):
-        filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.pdf"
-        asyncio.run(renderPDF(self.panel_url, self.headers, filepath, width))
-        is_success = check_path(filepath)
-        if is_success:
-            return filepath
-        else:
-            return None
 
-    def renderPNG(self, width: int = 792):
-        filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.png"
-        asyncio.run(renderPNG(self.panel_url, self.headers, filepath, width))
-        is_success = check_path(filepath)
-        if is_success:
-            return filepath
-        else:
-            return None
+class File:
+    def __init__(self, title, filepath, fileurl, viewurl, slug):
+        self.title = title
+        self.filepath = filepath
+        self.fileurl = fileurl
+        self.viewurl = viewurl
+        self.slug = slug
 
-    def outputCSV(self, xlsx: bool = True):
-        url = f"{self.panel_url}&inspect={self.uid}&inspectTab=data"
-        filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.csv"
-        asyncio.run(outputCSV(url, self.headers, filepath))
-        is_success = check_path(filepath)
-        if is_success:
-            if xlsx:
+
+class Renderer:
+    def __init__(
+            self,
+            public_url,
+            width: int = 792,
+            filetype: Literal['png', 'pdf', 'csv', 'xlsx'] = 'png'
+    ):
+        self.public_url = public_url
+        self.directory = 'file'
+        self.width = width
+        self.filetype = filetype
+
+    def render(self, gfpage: Dashboard | Panel):
+        filepath = f"{self.directory}/{self.sanitize_filename(gfpage.title)}_{str(time.time_ns())}.{self.filetype}"
+        fileurl = f"{self.public_url}/{filepath}"
+
+        if self.filetype == 'png':
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch()
                 try:
-                    dataframe = pandas.read_csv(filepath, encoding='utf-8')
-                    filepath = filepath.replace('.csv', '.xlsx')
-                    dataframe.to_excel(filepath.replace('.csv', '.xlsx'), index=False, engine='openpyxl')
-                except pandas.errors.EmptyDataError:
-                    print(f"EmptyDataError: {filepath} is Empty")
-            return filepath
+                    page = self.open_page(browser, gfpage.url, gfpage.headers, self.width)
+                    page.screenshot(path=filepath, full_page=True, type="png")
+                finally:
+                    browser.close()
+            if self.check_path(filepath):
+                return File(title=gfpage.title, filepath=filepath, fileurl=fileurl, viewurl=gfpage.url,
+                            slug=gfpage.slug)
+            else:
+                return None
+        elif self.filetype == 'pdf':
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch()
+                try:
+                    page = self.open_page(browser, gfpage.url, gfpage.headers, self.width)
+                    width = int(page.viewport_size.get('width') / 3.77)
+                    height = int(page.viewport_size.get('height') / 3.77)
+                    page.pdf(path=filepath, print_background=True, width=f'{width}mm', height=f'{height}mm')
+                finally:
+                    browser.close()
+            if self.check_path(filepath):
+                return File(title=gfpage.title, filepath=filepath, fileurl=fileurl, viewurl=gfpage.url,
+                            slug=gfpage.slug)
+            else:
+                return None
         else:
-            return None
+            # 如果页面不是 Panel 则直接返回 None
+            if not isinstance(gfpage, Panel):
+                return None
+
+            # 首先导出 csv
+            csv_filepath = filepath.replace('.xlsx', '.csv')
+            xlsx_filepath = filepath.replace('.csv', '.xlsx')
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch()
+                try:
+                    page = self.open_page(browser, gfpage.url, gfpage.headers, self.width)
+                    span = page.query_selector('span:text("下载 CSV")')
+                    if span:
+                        with page.expect_download() as download_info:
+                            span.click()
+                        download = download_info.value
+                        download.save_as(csv_filepath)
+                finally:
+                    browser.close()
+
+            # 如果需要 csv 则直接返回
+            if self.filetype == 'csv':
+                if self.check_path(filepath):
+                    return File(title=gfpage.title, filepath=filepath, fileurl=fileurl, viewurl=gfpage.url,
+                                slug=gfpage.slug)
+                else:
+                    return None
+            # 如果需要 xlsx 则将 csv 转换为 xlsx 编码后返回
+            else:
+                try:
+                    dataframe = pandas.read_csv(csv_filepath, encoding='utf-8')
+                    dataframe.to_excel(xlsx_filepath, index=False, engine='openpyxl')
+                except Exception as e:
+                    pass
+
+                if self.check_path(filepath):
+                    return File(title=gfpage.title, filepath=filepath, fileurl=fileurl, viewurl=gfpage.url,
+                                slug=gfpage.slug)
+                else:
+                    return None
+
+    @staticmethod
+    def check_path(relative_path):
+        # 创建 Path 对象
+        path = Path(relative_path)
+
+        # 检查路径是否存在
+        if path.exists():
+            # 获取绝对路径
+            absolute_path = path.resolve()
+            print(f"Absolute path: {absolute_path}")
+            return True
+        else:
+            print(f"The path '{relative_path}' does not exist.")
+            return False
+
+    @staticmethod
+    def open_page(browser, url, headers, width):
+        page = browser.new_page()
+        page.set_extra_http_headers(headers)
+        page.set_viewport_size({"width": width, "height": 400})
+        page.goto(url)
+        page.wait_for_load_state('networkidle')
+        height = page.evaluate("document.querySelector('.react-grid-layout').offsetHeight")
+        page.set_viewport_size({"width": width, "height": height + 50})
+        return page
+
+    @staticmethod
+    def sanitize_filename(filename: str, replacement: str = "") -> str:
+        # 定义非法字符的正则表达式
+        illegal_characters = r'[\/:*?"<>|]'
+
+        # 使用正则表达式替换非法字符
+        sanitized_name = re.sub(illegal_characters, replacement, filename)
+
+        # 去除开头和结尾的空白字符
+        sanitized_name = sanitized_name.strip()
+
+        # 限制文件名长度为30个字符
+        max_length = 30
+        if len(sanitized_name) > max_length:
+            sanitized_name = sanitized_name[:max_length]
+
+        # 检查是否为保留名称
+        reserved_names = {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+                          "COM9",
+                          "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
+        if sanitized_name.upper() in reserved_names:
+            sanitized_name = f"{sanitized_name}_file"
+
+        return sanitized_name
 
 
-def convert_csv_to_ansi(filepath, ansi_encoding='windows-1252'):
-    try:
-        # 使用原始字符串处理文件路径
-        filepath = os.path.normpath(filepath)
+def render_and_send(
+        gfpage: Dashboard | Panel,
+        public_url: str,
+        filetype: Literal['png', 'pdf', 'csv', 'xlsx'],
+        width: int,
+        notifier: BaseNotifier,
+        receiver: List[str]):
 
-        # 读取CSV文件并使用UTF-8编码
-        with open(filepath, 'r', encoding='utf-8') as src_file:
-            reader = csv.reader(src_file)
-            rows = list(reader)
-
-        # 写入转换后的CSV文件，使用ANSI编码覆盖原文件
-        with open(filepath, 'w', encoding=ansi_encoding) as dest_file:
-            writer = csv.writer(dest_file)
-            writer.writerows(rows)
-
-        print(f"CSV file '{filepath}' has been converted from UTF-8 to {ansi_encoding} encoding.")
-    except Exception as e:
-        print(f"An error occurred while converting the file: {e}")
-
-
-def check_path(relative_path):
-    # 创建 Path 对象
-    path = Path(relative_path)
-
-    # 检查路径是否存在
-    if path.exists():
-        # 获取绝对路径
-        absolute_path = path.resolve()
-        print(f"Absolute path: {absolute_path}")
-        return True
-    else:
-        print(f"The path '{relative_path}' does not exist.")
-        return False
-
-
-async def open_page(browser, url, headers, width):
-    page = await browser.new_page()
-    await page.set_extra_http_headers(headers)
-    await page.set_viewport_size({"width": width, "height": 400})
-    await page.goto(url)
-    await page.wait_for_load_state('networkidle')
-    height = await page.evaluate("document.querySelector('.react-grid-layout').offsetHeight")
-    await page.set_viewport_size({"width": width, "height": height + 50})
-    return page
-
-
-async def renderPDF(url, headers, filepath, width: int = 792):
-    logging.info(f"Rendering {filepath} From {url}...")
-    async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch()
-        try:
-            page = await open_page(browser, url, headers, width)
-            width, height = int(page.viewport_size.get('width')/3.77), int(page.viewport_size.get('height')/3.77)
-            await page.pdf(path=filepath, print_background=True, width=f'{width}mm', height=f'{height}mm')
-        finally:
-            await browser.close()
-    return filepath
-
-
-async def renderPNG(url, headers, filepath, width: int = 792):
-    logging.info(f"Rendering {filepath} From {url}...")
-    async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch()
-        try:
-            page = await open_page(browser, url, headers, width)
-            await page.screenshot(path=filepath, full_page=True, type="png")
-        finally:
-            await browser.close()
-    return filepath
-
-
-async def outputCSV(url, headers, filepath, width: int = 792):
-    logging.info(f"Outputing {filepath} From {url}...")
-    async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch()
-        try:
-            page = await open_page(browser, url, headers, width)
-            span = await page.query_selector('span:text("下载 CSV")')
-            if span:
-                async with page.expect_download() as download_info:
-                    await span.click()
-                download = await download_info.value
-                await download.save_as(filepath)
-        finally:
-            await browser.close()
-    return filepath
+    file = Renderer(public_url, width, filetype).render(gfpage)
+    notifier.send(file, receiver)
