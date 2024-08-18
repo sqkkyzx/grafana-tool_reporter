@@ -185,7 +185,7 @@ def check_path(relative_path):
         return True
     else:
         print(f"The path '{relative_path}' does not exist.")
-        return Fale
+        return False
 
 
 async def open_page(browser, url, headers, width):
