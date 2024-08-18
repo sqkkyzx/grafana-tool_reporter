@@ -81,7 +81,7 @@ class Dashboard:
         self.query = query_string
 
     def renderPNG(self, width: int = 792):
-        filepath = f"temp/{self.title}_{str(time.time_ns())}.png"
+        filepath = f"files/{self.title}_{str(time.time_ns())}.png"
         asyncio.run(renderPNG(self.view_url, self.headers, filepath, width))
         is_success = check_path(filepath)
         if is_success:
@@ -90,7 +90,7 @@ class Dashboard:
             return None
 
     def renderPDF(self, width: int = 792):
-        filepath = f"temp/{self.title}_{str(time.time_ns())}.pdf"
+        filepath = f"files/{self.title}_{str(time.time_ns())}.pdf"
         asyncio.run(renderPDF(self.view_url, self.headers, filepath, width))
         is_success = check_path(filepath)
         if is_success:
@@ -118,7 +118,7 @@ class Panel:
         self.view_url = f'{dashboard.view_url}&viewPanel={self.uid}'
 
     def renderPDF(self, width: int = 792):
-        filepath = f"temp/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.pdf"
+        filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.pdf"
         asyncio.run(renderPDF(self.view_url, self.headers, filepath, width))
         is_success = check_path(filepath)
         if is_success:
@@ -127,7 +127,7 @@ class Panel:
             return None
 
     def renderPNG(self, width: int = 792):
-        filepath = f"temp/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.png"
+        filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.png"
         asyncio.run(renderPNG(self.view_url, self.headers, filepath, width))
         is_success = check_path(filepath)
         if is_success:
@@ -137,7 +137,7 @@ class Panel:
 
     def outputCSV(self, xlsx: bool = True):
         url = f"{self.view_url}&inspect={self.uid}&inspectTab=data"
-        filepath = f"temp/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.csv"
+        filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.csv"
         asyncio.run(outputCSV(url, self.headers, filepath))
         is_success = check_path(filepath)
         if is_success:
