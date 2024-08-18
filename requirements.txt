@@ -2,7 +2,8 @@ playwright
 httpx
 pandas
 openpyxl
-schedule
 PyYAML
 fastapi
 uvicorn
+pydantic
+APScheduler
