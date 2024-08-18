@@ -1,8 +1,3 @@
-grafana:
-  domain: your-domain
-  tls: true
-  token: your-token
-
 # notifier 是一个示例，向你展示支持的发送程序如何配置
 # 你也可以在这里写上配置，使用 yaml 锚点和引用的语法，
 # 为常用的配置添加锚点，并在 job 中重复引用。

@@ -1,0 +1,5 @@
+grafana:
+  domain: your-domain
+  tls: true  # true/false
+  token: your-token
+loglevel: INFO
