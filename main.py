@@ -1,12 +1,40 @@
 import logging
+from multiprocessing.pool import worker
 
 import schedule
-import os
 import time
+import yaml
+
 from grafana import Grafana
+import notifier
 
 
-def add_jobs():
+def read_yaml(filepath):
+    with open(filepath, 'r', encoding='utf-8') as file:
+        try:
+            # 加载YAML内容
+            data = yaml.safe_load(file)
+            return data
+        except yaml.YAMLError as exc:
+            logging.error(f"Error in yaml file: {exc}")
+            raise f"Cannot load {filepath}, please check file."
+
+
+def init_grafana():
+    grafana_config: dict = read_yaml('config/config.yaml').get('grafana')
+    return Grafana(**grafana_config)
+
+
+def init_notifier():
+    notifier_config: dict = read_yaml('config/notifier.yaml')
+    return {
+        'worktool': notifier.Worktool(**notifier_config.get('worktool')),
+        'gotify': notifier.Gotify(**notifier_config.get('gotify')),
+        'dintalk_webhook': notifier.DingTalkWebhook(**notifier_config.get('dintalk_webhook'))
+    }
+
+
+def init_jobs():
     jobs = []
     for job in jobs:
         try:
@@ -18,13 +46,9 @@ def add_jobs():
 
 
 if __name__ == "__main__":
-    GRAFANA_DOMIN = os.getenv('GRAFANA_DOMIN')
-    GRAFANA_TLS = os.getenv('GRAFANA_TLS').lower() == 'true'
-    GRAFANA_TOKEN = os.getenv('GRAFANA_TOKEN')
-    grafana = Grafana(domain=GRAFANA_DOMIN, tls=GRAFANA_TLS, token=GRAFANA_TOKEN)
-
-    add_jobs()
-
+    grafana = init_grafana()
+    notifiers = init_notifier()
+    init_jobs()
     while True:
         schedule.run_pending()
         time.sleep(1)

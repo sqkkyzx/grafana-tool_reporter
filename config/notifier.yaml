@@ -1,0 +1,16 @@
+# 钉钉 WEBHOOK 机器人
+# 只能发送文本和图片，文件只会以明文链接形式发送。
+# 一般无需更改默认的 uri 配置，不写 access_token
+dintalk_webhook:
+  uri: https://oapi.dingtalk.com/robot/send
+
+# Gotify
+# 只能发送文本和图片，文件只会以明文链接形式发送。
+gotify:
+  uri: https://your-domain/message
+
+# WORKTOOL：第三方微信/企微机器人
+# https://worktool.apifox.cn/
+worktool:
+  uri: https://api.worktool.ymdyes.cn/wework/sendRawMessage
+  robot_id: your_robot_id
