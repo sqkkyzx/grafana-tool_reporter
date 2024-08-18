@@ -3,10 +3,8 @@ FROM python:3.12-slim
 WORKDIR /usr/src/myapp
 
 # 安装依赖
-RUN mkdir -p /usr/src/myapp/tmp/pdf &&  \
-    mkdir /usr/src/myapp/tmp/png && \
-    pip install --upgrade pip && \
-    pip install playwright httpx pandas openpyxl schedule PyYAML && \
+RUN pip install --upgrade pip && \
+    pip install playwright httpx pandas openpyxl PyYAML fastapi uvicorn pydantic APScheduler && \
     pip cache purge
 
 RUN apt-get update &&  \
