@@ -4,3 +4,5 @@ pandas
 openpyxl
 schedule
 PyYAML
+fastapi
+uvicorn
