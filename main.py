@@ -1,10 +1,13 @@
+import asyncio
 import logging
-from multiprocessing.pool import worker
-
+from contextlib import asynccontextmanager
 import schedule
-import time
+
+import uvicorn
 import yaml
 
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from grafana import Grafana
 import notifier
 
@@ -45,10 +48,36 @@ def init_jobs():
             raise f"任务 {job} 添加失败，请检查配置是否正确"
 
 
-if __name__ == "__main__":
+@asynccontextmanager
+async def lifespan(myapp: FastAPI):
+    # 启动调度任务的异步任务
+    loop = asyncio.get_event_loop()
+    stop_event = asyncio.Event()
+
     grafana = init_grafana()
     notifiers = init_notifier()
     init_jobs()
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+
+    async def run_schedule():
+
+        while not stop_event.is_set():
+            try:
+                schedule.run_pending()
+            except Exception as e:
+                logging.error(f'Task field with {e}')
+            await asyncio.sleep(1)
+
+    schedule_task = loop.create_task(run_schedule())
+
+    yield
+    # 停止调度任务
+    stop_event.set()
+    await schedule_task
+
+
+app = FastAPI(lifespan=lifespan)
+app.mount("/files", StaticFiles(directory="files"), name="files")
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=False)
