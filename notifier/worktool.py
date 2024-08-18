@@ -1,23 +1,27 @@
+from typing import List
+from .base import BaseNotifier, File
 import httpx
 
 
-class Worktool:
+class Worktool(BaseNotifier):
     def __init__(self, **kwargs):
+        super().__init__()
         uri = kwargs.get('uri')
         self.uri = uri[:-1] if uri.endswith('/') else uri
         self.robotid: str = kwargs.get('robot_id')
 
-    def send(self, receivers, title, filepath):
+    def send(self, file: File, receivers: List[str]):
         action_list = []
         for receiver in receivers:
-            file_type = 'image' if '.png' in filepath else '*'
+            filetype = 'image' if file.filetype == 'png' else '*'
+            hexstring = file.title.encode('utf-8').hex()
             action = {
                 "type": 218,
                 "titleList": receiver,
-                "objectName": title,
-                "fileUrl": filepath,
-                "fileType": file_type,
-                "extraText": title
+                "objectName": F"{hexstring}.{file.filetype}",
+                "fileUrl": file.filepath,
+                "fileType": filetype,
+                "extraText": f"#{file.title}\n{file.slug}"
             }
             action_list.append(action)
 
