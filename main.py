@@ -1,16 +1,18 @@
-import asyncio
 import logging
 import os
 import time
 from contextlib import asynccontextmanager
-import schedule
+from typing import List, Literal
 
 import uvicorn
 import yaml
-
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from grafana import Grafana
+from pydantic import BaseModel, field_validator
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+from grafana import Grafana, render_and_send
 import notifier
 
 
@@ -25,32 +27,92 @@ def read_yaml(filepath):
             raise f"Cannot load {filepath}, please check file."
 
 
+PUBLIC_URL = read_yaml('config/config.yaml').get('files').get('public_url')
+
+
 def init_grafana():
     grafana_config: dict = read_yaml('config/config.yaml').get('grafana')
     return Grafana(**grafana_config)
 
 
 def init_notifier():
-    notifier_config: dict = read_yaml('config/notifier.yaml')
-    return {
-        'worktool': notifier.Worktool(**notifier_config.get('worktool')),
-        'gotify': notifier.Gotify(**notifier_config.get('gotify')),
-        'dintalk_webhook': notifier.DingTalkWebhook(**notifier_config.get('dintalk_webhook'))
-    }
+    notifiers_config: dict = read_yaml('config/notifier.yaml')
+    provided_notifiers: list[str] = list(notifiers_config.keys())
+    notifiers = {}
+    for notifier_type in provided_notifiers:
+        notifier_class = getattr(notifier, notifier_type)
+        if notifier_class:
+            notifiers[notifier_type] = notifier_class(**notifiers_config.get(notifier_type))
+        else:
+            logging.warning(f'Provided Notifiers [{notifier_type}] not suppord.')
+    if notifiers == {}:
+        raise 'No provided notifier.'
+    else:
+        return notifiers
 
 
-def init_jobs():
-    jobs = []
+def init_jobslist(notifiers_validator: list):
+    jobs_info = read_yaml('config/job.yaml').get('jobs')
+
+    class JobPage(BaseModel):
+        dashboard_uid: str
+        panel_uid: int | None = None
+        query: int | None = None
+
+    class JobNotifier(BaseModel):
+        type: str
+        receiver: List[str]
+
+        @field_validator('type')
+        def validate_type(cls, value):
+            if value not in notifiers_validator:
+                raise ValueError(f"Selected notifier [{value}] is not been init.")
+            return value
+
+    class JobRender(BaseModel):
+        width: int
+        filetype: Literal['png', 'pdf', 'csv', 'xlsx']
+
+    class Job(BaseModel):
+        name: str
+        page: JobPage
+        render: JobRender
+        crontab: str
+        notifier: JobNotifier
+
+    return [Job(**job_info) for job_info in jobs_info]
+
+
+def register_jobs(scheduler: AsyncIOScheduler, grafana: Grafana, notifiers: dict):
+    jobs = init_jobslist(list(notifiers.keys()))
+
     for job in jobs:
         try:
-            pass
-            logging.info(f"任务 {job} 已添加")
+            if job.page.panel_uid:
+                gfpage = grafana.dashboard(job.page.dashboard_uid).set_query(job.page.query).panel(
+                    job.page.panel_uid)
+            else:
+                gfpage = grafana.dashboard(job.page.dashboard_uid).set_query(job.page.query)
+
+            scheduler.add_job(
+                func=render_and_send,
+                trigger=CronTrigger.from_crontab(job.crontab),
+                kwargs={
+                    'gfpage': gfpage,
+                    'public_url': PUBLIC_URL,
+                    'width': job.render.width,
+                    'filetype': job.render.filetype,
+                    'notifier': notifiers.get(job.notifier.type),
+                    'receiver': job.notifier.receiver
+                }
+            )
+            logging.info(f"任务 {job.name} 已添加")
         except Exception as e:
             logging.debug(e)
             raise f"任务 {job} 添加失败，请检查配置是否正确"
 
 
-def init_clean():
+def register_clean_job(scheduler: AsyncIOScheduler):
     expiry_days: int = read_yaml('config/config.yaml').get('files').get("expiry_days")
 
     def clean_files(days, directory):
@@ -62,41 +124,34 @@ def init_clean():
                 print(f"Deleting file: {file_path}")
                 os.remove(file_path)
 
-    schedule.every(1).day.at("05:00").do(job_func=clean_files, days=expiry_days, directory='files')
+    crontab = "0 0 * * *"
+    scheduler.add_job(
+        func=clean_files,
+        trigger=CronTrigger.from_crontab(crontab),
+        kwargs={"days": expiry_days, "directory": 'files'}
+    )
 
 
 @asynccontextmanager
 async def lifespan(myapp: FastAPI):
-    # 启动调度任务的异步任务
-    loop = asyncio.get_event_loop()
-    stop_event = asyncio.Event()
+    scheduler = AsyncIOScheduler()
 
     # 初始化
     grafana = init_grafana()
     notifiers = init_notifier()
-    init_clean()
-    init_jobs()
 
-    async def run_schedule():
-        while not stop_event.is_set():
-            try:
-                schedule.run_pending()
-            except Exception as e:
-                logging.error(f'Task field with {e}')
-            await asyncio.sleep(1)
+    register_jobs(scheduler, grafana, notifiers)
+    register_clean_job(scheduler)
 
-    schedule_task = loop.create_task(run_schedule())
+    scheduler.start()
 
     yield
 
-    # 停止调度任务
-    stop_event.set()
-    await schedule_task
+    scheduler.shutdown()
 
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/files", StaticFiles(directory="files"), name="files")
-
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=False)
