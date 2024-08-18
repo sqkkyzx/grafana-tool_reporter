@@ -11,13 +11,8 @@ import pandas
 
 
 class Grafana:
-    def __init__(self, domain: str, token: str, tls: bool = True):
-        self.domain = domain
-        self.token = token
-        self.tls = tls
-
-        self.scheme = 'https' if tls else 'http'
-        self.view_url = f'{self.scheme}://{domain}'
+    def __init__(self, public_url: str, token: str):
+        self.public_url = public_url[:-1] if public_url.endswith('/') else public_url
         self.headers = {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
@@ -32,7 +27,7 @@ class Dashboard:
     def __init__(self, grafana: Grafana, uid):
         self.uid = uid
 
-        self.site_url = grafana.view_url
+        self.public_url = grafana.public_url
         self.headers = grafana.headers
 
         self.title: Optional[str] = None
@@ -48,13 +43,13 @@ class Dashboard:
         self.query: Optional[str] = 'kiosk'
         self.panels: Optional[List[Panel]] = None
 
-        self.view_url: Optional[str] = None
+        self.dashboard_url: Optional[str] = None
 
         self.get_info()
 
     def get_info(self):
         response = httpx.get(
-            url=f'{self.site_url}/api/dashboards/uid/{self.uid}',
+            url=f'{self.public_url}/api/dashboards/uid/{self.uid}',
             headers=self.headers
         ).json()
 
@@ -68,7 +63,7 @@ class Dashboard:
         self.folderUid = meta.get('folderUid')
         self.slug = meta.get('slug')
 
-        self.view_url: str = f'{self.site_url}{self.path}?{self.query}'
+        self.dashboard_url: str = f'{self.public_url}{self.path}?{self.query}'
 
         self.title = dashboard.get('title')
         self.tags = dashboard.get('tags')
@@ -82,7 +77,7 @@ class Dashboard:
 
     def renderPNG(self, width: int = 792):
         filepath = f"files/{self.title}_{str(time.time_ns())}.png"
-        asyncio.run(renderPNG(self.view_url, self.headers, filepath, width))
+        asyncio.run(renderPNG(self.dashboard_url, self.headers, filepath, width))
         is_success = check_path(filepath)
         if is_success:
             return filepath
@@ -91,7 +86,7 @@ class Dashboard:
 
     def renderPDF(self, width: int = 792):
         filepath = f"files/{self.title}_{str(time.time_ns())}.pdf"
-        asyncio.run(renderPDF(self.view_url, self.headers, filepath, width))
+        asyncio.run(renderPDF(self.dashboard_url, self.headers, filepath, width))
         is_success = check_path(filepath)
         if is_success:
             return filepath
@@ -100,13 +95,13 @@ class Dashboard:
 
     async def creatShortUrl(self):
         uid = httpx.post(
-            url=f'{self.site_url}/api/short-urls',
+            url=f'{self.public_url}/api/short-urls',
             headers=self.headers,
             json={
                 "path": self.path.replace('/d', 'd')
             }
         ).json().get('uid')
-        return f'{self.site_url}/goto/{uid}'
+        return f'{self.public_url}/goto/{uid}'
 
 
 class Panel:
@@ -115,11 +110,11 @@ class Panel:
         self.title = data.get('title')
         self.dashboard_title = dashboard.title
         self.headers = dashboard.headers
-        self.view_url = f'{dashboard.view_url}&viewPanel={self.uid}'
+        self.panel_url = f'{dashboard.dashboard_url}&viewPanel={self.uid}'
 
     def renderPDF(self, width: int = 792):
         filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.pdf"
-        asyncio.run(renderPDF(self.view_url, self.headers, filepath, width))
+        asyncio.run(renderPDF(self.panel_url, self.headers, filepath, width))
         is_success = check_path(filepath)
         if is_success:
             return filepath
@@ -128,7 +123,7 @@ class Panel:
 
     def renderPNG(self, width: int = 792):
         filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.png"
-        asyncio.run(renderPNG(self.view_url, self.headers, filepath, width))
+        asyncio.run(renderPNG(self.panel_url, self.headers, filepath, width))
         is_success = check_path(filepath)
         if is_success:
             return filepath
@@ -136,7 +131,7 @@ class Panel:
             return None
 
     def outputCSV(self, xlsx: bool = True):
-        url = f"{self.view_url}&inspect={self.uid}&inspectTab=data"
+        url = f"{self.panel_url}&inspect={self.uid}&inspectTab=data"
         filepath = f"files/{self.dashboard_title}-{self.title}_{str(time.time_ns())}.csv"
         asyncio.run(outputCSV(url, self.headers, filepath))
         is_success = check_path(filepath)

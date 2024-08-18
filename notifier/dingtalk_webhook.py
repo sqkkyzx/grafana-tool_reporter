@@ -3,7 +3,8 @@ import httpx
 
 class DingTalkWebhook:
     def __init__(self, **kwargs):
-        self.uri = kwargs.get('uri')
+        uri = kwargs.get('uri')
+        self.uri = uri[:-1] if uri.endswith('/') else uri
 
     def send(self, receivers, title, filepath):
         for receiver in receivers:

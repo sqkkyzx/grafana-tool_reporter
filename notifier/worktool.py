@@ -3,7 +3,8 @@ import httpx
 
 class Worktool:
     def __init__(self, **kwargs):
-        self.uri = kwargs.get('uri')
+        uri = kwargs.get('uri')
+        self.uri = uri[:-1] if uri.endswith('/') else uri
         self.robotid: str = kwargs.get('robot_id')
 
     def send(self, receivers, title, filepath):

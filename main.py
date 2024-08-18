@@ -51,10 +51,10 @@ def init_jobs():
 
 
 def init_clean():
-    expiry_days: int = read_yaml('config/config.yaml').get("expiry_days")
+    expiry_days: int = read_yaml('config/config.yaml').get('files').get("expiry_days")
 
     def clean_files(days, directory):
-        expiry_in = time.time() - (expiry_days * 86400)
+        expiry_in = time.time() - (days * 86400)
         for filename in os.listdir(directory):
             file_path = os.path.join(directory, filename)
             file_creation_time = os.path.getctime(file_path)
