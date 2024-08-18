@@ -19,4 +19,4 @@ RUN apt-get update &&  \
 COPY . .
 
 # 启动应用程序
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
+CMD ["python", "main.py"]
