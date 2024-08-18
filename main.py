@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import os
+import time
 from contextlib import asynccontextmanager
 import schedule
 
@@ -48,18 +50,34 @@ def init_jobs():
             raise f"任务 {job} 添加失败，请检查配置是否正确"
 
 
+def init_clean():
+    expiry_days: int = read_yaml('config/config.yaml').get("expiry_days")
+
+    def clean_files(days, directory):
+        expiry_in = time.time() - (expiry_days * 86400)
+        for filename in os.listdir(directory):
+            file_path = os.path.join(directory, filename)
+            file_creation_time = os.path.getctime(file_path)
+            if file_creation_time < expiry_in:
+                print(f"Deleting file: {file_path}")
+                os.remove(file_path)
+
+    schedule.every(1).day.at("05:00").do(job_func=clean_files, days=expiry_days, directory='files')
+
+
 @asynccontextmanager
 async def lifespan(myapp: FastAPI):
     # 启动调度任务的异步任务
     loop = asyncio.get_event_loop()
     stop_event = asyncio.Event()
 
+    # 初始化
     grafana = init_grafana()
     notifiers = init_notifier()
+    init_clean()
     init_jobs()
 
     async def run_schedule():
-
         while not stop_event.is_set():
             try:
                 schedule.run_pending()
@@ -70,6 +88,7 @@ async def lifespan(myapp: FastAPI):
     schedule_task = loop.create_task(run_schedule())
 
     yield
+
     # 停止调度任务
     stop_event.set()
     await schedule_task

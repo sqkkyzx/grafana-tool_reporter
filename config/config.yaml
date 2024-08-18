@@ -3,3 +3,4 @@ grafana:
   tls: true  # true/false
   token: your-token
 loglevel: INFO
+expiry_days: 7
