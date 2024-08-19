@@ -7,7 +7,7 @@
 ### TODO
 - [ ] 使用 AI 总结页面数据
 - [ ] 添加 Email 作为推送器
-- [ ] 使用 S3 兼容的对象存储来保存文件，以避免需要本地架设web服务
+- [x] 使用 S3 兼容的对象存储来保存文件，以避免需要本地架设web服务
 
 
 # 配置说明
@@ -22,10 +22,14 @@ grafana:
   public_url: https://your-grafana.com
   # 在 Grafana 后台中创建一个服务账户，即可获得 token
   token: your-token
+s3:
+  region:
+  bucket:
+  public_url:
+  endpoint_url:
+  access_key_id:
+  secret_access_key:
 files:
-  # 本程序中 web 服务的访问地址，目前必须是公网可访问地址，否则否则某些只能
-  # 从网络URL发送文件的推送器将无法下载到图片或文件。
-  public_url: https://example.com
   # 产生的临时文件保存天数
   expiry_days: 2
 ```
