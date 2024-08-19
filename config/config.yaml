@@ -3,9 +3,13 @@ grafana:
   public_url: https://your-grafana.com
   # 在 Grafana 后台中创建一个服务账户，即可获得 token
   token: your-token
+s3:
+  region:
+  bucket:
+  public_url:
+  endpoint_url:
+  access_key_id:
+  secret_access_key:
 files:
-  # 本程序中 web 服务的访问地址，目前必须是公网可访问地址，否则否则某些只能
-  # 从网络URL发送文件的推送器将无法下载到图片或文件。
-  public_url: https://example.com
-  # 产生的临时文件保存天数
+  # 产生的临时文件保存天数，仅清理本地文件，S3文件请自行配置过期策略
   expiry_days: 2

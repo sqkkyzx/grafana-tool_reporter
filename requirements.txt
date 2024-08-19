@@ -7,3 +7,5 @@ fastapi
 uvicorn
 pydantic
 APScheduler
+boto3
+botocore

@@ -9,6 +9,7 @@ import pandas as pd
 import re
 
 from notifier import BaseNotifier
+from s3 import S3Client
 
 
 class Grafana:
@@ -93,12 +94,12 @@ class File:
 
 
 class RenderJob:
-    def __init__(self, grafana_client: Grafana, enable_notifiers: Dict[str, BaseNotifier], public_url: str,
+    def __init__(self, grafana_client: Grafana, enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client,
                  **kwargs  # 使用 **job_info 传入
                  ):
         self.grafana_client: Grafana = grafana_client
         self.enable_notifiers: Dict[str, BaseNotifier] = enable_notifiers
-        self.public_url: str = public_url
+        self.s3client: S3Client = s3client
 
         self.name: str = kwargs.get('name', 'UnnamedJob')
 
@@ -189,7 +190,6 @@ class RenderJob:
         filename = f'{self._sanitize_filename(self.page.title)}_{str(time.time_ns())}'
 
         filepath = f"files/{filename}.{filetype}"
-        fileurl = f"{self.public_url}/{filepath}"
 
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
@@ -225,6 +225,7 @@ class RenderJob:
             finally:
                 browser.close()
         if self._check_path(filepath):
+            fileurl = self.s3client.upload(filepath)
             return File(title=self.page.title, filepath=filepath, fileurl=fileurl, viewurl=self.page.url, slug=self.page.slug)
         else:
             return None

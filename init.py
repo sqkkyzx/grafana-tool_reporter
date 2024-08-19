@@ -5,6 +5,7 @@ from typing import Dict, List
 import yaml
 import logging
 from grafana import Grafana, RenderJob
+from s3 import S3Client
 import notifier
 from notifier import BaseNotifier
 
@@ -79,13 +80,47 @@ def init_notifier() -> Dict[str, BaseNotifier]:
     return enabled_notifiers
 
 
-def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], public_url: str) -> List[RenderJob]:
+def init_s3client() -> S3Client:
+    try:
+        # 读取配置文件
+        s3_config: dict = read_yaml('config.yaml').get('s3', {})
+
+        # 从环境变量中获取S3配置，优先使用环境变量
+        env_region = os.getenv('S3_REGION')
+        env_bucket = os.getenv('S3_BUCKET')
+        env_endpoint_url = os.getenv('S3_ENDPOINT_URL')
+        env_public_url = os.getenv('S3_PUBLIC_URL')
+        env_access_key_id = os.getenv('S3_ACCESS_KEY_ID')
+        env_secret_access_key = os.getenv('S3_SECRET_ACCESS_KEY')
+
+        # 更新配置字典
+        if env_region:
+            s3_config['region'] = env_region
+        if env_bucket:
+            s3_config['bucket'] = env_bucket
+        if env_endpoint_url:
+            s3_config['endpoint_url'] = env_endpoint_url
+        if env_public_url:
+            s3_config['public_url'] = env_public_url
+        if env_access_key_id:
+            s3_config['access_key_id'] = env_access_key_id
+        if env_secret_access_key:
+            s3_config['secret_access_key'] = env_secret_access_key
+
+        # 创建并返回S3客户端
+        return S3Client(**s3_config)
+
+    except Exception as e:
+        raise e
+
+
+def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client) -> List[RenderJob]:
     jobs_info = read_yaml('job.yaml').get('jobs')
     return [
         RenderJob(
             grafana_client=grafana,
             enable_notifiers=enable_notifiers,
-            public_url=public_url,
+            s3client=s3client,
             **job_info
         ) for job_info in jobs_info
     ]
