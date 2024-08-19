@@ -92,6 +92,15 @@ class File:
         self.viewurl = viewurl
         self.slug = slug
 
+    def dict(self):
+        return {
+            'title': self.title,
+            'filepath': self.filepath,
+            'fileurl': self.fileurl,
+            'viewurl': self.viewurl,
+            'slug': self.slug
+        }
+
 
 class RenderJob:
     def __init__(self, grafana_client: Grafana, enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client,
@@ -110,9 +119,14 @@ class RenderJob:
 
         self.page: Dashboard | Panel = self._get_page()
 
-        notifier: Tuple[BaseNotifier, List[str]] = self._get_notifier()
-        self.notifier: BaseNotifier = notifier[0]
-        self.receiver: List[str] = notifier[1]
+        # 没有使用API请求时，必循
+        if self.notifier_cfg != {'None': 'None'}:
+            notifier: Tuple[BaseNotifier, List[str]] = self._get_notifier()
+            self.notifier: BaseNotifier = notifier[0]
+            self.receiver: List[str] = notifier[1]
+        else:
+            self.notifier = None
+            self.receiver = None
 
     def _get_must_value(self, dictionary: dict, key: str):
         value = dictionary.get(key)
@@ -226,14 +240,15 @@ class RenderJob:
                 browser.close()
         if self._check_path(filepath):
             fileurl = self.s3client.upload(filepath)
-            return File(title=self.page.title, filepath=filepath, fileurl=fileurl, viewurl=self.page.url, slug=self.page.slug)
+            return File(title=self.page.title, filepath=filepath, fileurl=fileurl, viewurl=self.page.url,
+                        slug=self.page.slug)
         else:
             return None
 
     def notice(self):
         # 渲染文件并发送通知
         file: File = self.render_file()
-        if file:
+        if file and self.receiver:
             self.notifier.send(file, self.receiver)
         else:
             logging.error(f"任务 {self.name} 页面渲染失败，无法发送通知。")
