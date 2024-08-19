@@ -3,9 +3,6 @@ httpx
 pandas
 openpyxl
 PyYAML
-fastapi
-uvicorn
-pydantic
 APScheduler
 boto3
 botocore

@@ -1,17 +1,13 @@
 import logging
 import os
 import time
-from contextlib import asynccontextmanager
 from typing import List
 
-import uvicorn
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from grafana import RenderJob
-from init import read_yaml, init_grafana, init_notifier, init_jobslist
+from init import read_yaml, init_grafana, init_notifier, init_s3client, init_jobslist
 
 
 def register_jobs(scheduler: AsyncIOScheduler, jobs: List[RenderJob]):
@@ -44,28 +40,34 @@ def register_clean_job(scheduler: AsyncIOScheduler):
     )
 
 
-@asynccontextmanager
-async def lifespan(myapp: FastAPI):
+def main():
     scheduler = AsyncIOScheduler()
 
     # 初始化
-    server_public_url: str = read_yaml('config/config.yaml').get('files').get('public_url')
     grafana_client = init_grafana()
     enable_notifiers = init_notifier()
-    jobs = init_jobslist(grafana_client, enable_notifiers, server_public_url)
+    s3_client = init_s3client()
+    jobs = init_jobslist(grafana_client, enable_notifiers, s3_client)
 
+    # 注册任务
     register_jobs(scheduler, jobs)
     register_clean_job(scheduler)
 
+    # 启动调度器
     scheduler.start()
 
-    yield
+    try:
+        # 这里可以添加你的代码，或者让调度器一直运行
+        while True:
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        # 关闭调度器
+        scheduler.shutdown()
+    finally:
+        # 确保调度器关闭，无论退出是通过异常还是正常结束
+        scheduler.shutdown()
+        logging.info("调度器已关闭")
 
-    scheduler.shutdown()
-
-
-app = FastAPI(lifespan=lifespan)
-app.mount("/files", StaticFiles(directory="files"), name="files")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=False)
+    main()

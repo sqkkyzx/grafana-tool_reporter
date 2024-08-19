@@ -4,7 +4,7 @@ WORKDIR /usr/src/myapp
 
 # 安装依赖
 RUN pip install --upgrade pip && \
-    pip install playwright httpx pandas openpyxl PyYAML fastapi uvicorn pydantic APScheduler && \
+    pip install playwright httpx pandas openpyxl PyYAML APScheduler boto3 && \
     pip cache purge
 
 RUN apt-get update &&  \
