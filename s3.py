@@ -9,13 +9,18 @@ from botocore.exceptions import NoCredentialsError, PartialCredentialsError, Cli
 
 
 class S3Client:
-    def __init__(self, region, bucket, endpoint_url, public_url, access_key_id, secret_access_key):
+    def __init__(self, region, bucket, endpoint_url, public_url, access_key_id, secret_access_key,
+                 addressing_style='virtual'):
         self.region = region
         self.bucket = bucket
         self.endpoint_url = endpoint_url
-        self.public_url = public_url
+        self.public_url = public_url[:-1] if public_url.endswith('/') else public_url
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
+        self.addressing_style = addressing_style
+
+        if self.addressing_style == 'virtual' and self.bucket in self.endpoint_url:
+            self.endpoint_url = self.endpoint_url.replace(f'{self.bucket}.', '')
 
         self.client: BaseClient = boto3.client(
             's3',
@@ -23,7 +28,9 @@ class S3Client:
             aws_secret_access_key=self.secret_access_key,
             endpoint_url=self.endpoint_url,
             region_name=self.region,
-            config=Config(signature_version='s3v4')
+            config=Config(
+                signature_version='s3v4',
+                s3={'addressing_style': self.addressing_style}),
         )
 
         self.validate()
@@ -38,8 +45,7 @@ class S3Client:
             # 如果存在 public_url，则尝试使用 public_url 下载
             if self.public_url:
                 try:
-                    parsed_url = urlparse(self.public_url)
-                    response = httpx.get(f"{parsed_url.scheme}://{parsed_url.netloc}/{self.bucket}/.s3_config_validate")
+                    response = httpx.get(f"{self.public_url}/.s3_config_validate")
                     response.raise_for_status()
                     downloaded_content = response.text
                     if content.strip() == downloaded_content.strip():
@@ -49,10 +55,12 @@ class S3Client:
                         raise Exception("S3配置验证失败：上传与读取文件内容不匹配。")
                 except Exception as e:
                     logging.debug(e)
-                    logging.warning("S3配置验证：配置中的 public_url 不可用，将使用预签名链接返回对象url，预签名链接将在 1 小时后过期。")
+                    logging.warning(
+                        "S3配置验证：配置中的 public_url 不可用，将使用预签名链接返回对象url，预签名链接将在 1 小时后过期。")
                     self.public_url = None
             else:
-                logging.warning("S3配置验证：未配置 public_url ，将使用预签名链接返回对象url，预签名链接将在 1 小时后过期。")
+                logging.warning(
+                    "S3配置验证：未配置 public_url ，将使用预签名链接返回对象url，预签名链接将在 1 小时后过期。")
 
             if self.public_url is None:
                 logging.info("S3配置验证：读取验证中...")
@@ -96,8 +104,7 @@ class S3Client:
             object_url = None
             # 如果存在 public_url，则尝试拼接公开访问链接
             if self.public_url:
-                parsed_url = urlparse(self.public_url)
-                object_url = f"{parsed_url.scheme}://{parsed_url.netloc}/{self.bucket}/{filepath}"
+                object_url = f"{self.public_url}/{filepath}"
             # 如果 public_url 不存在或无法拼接链接，则生成预签名链接
             if not object_url:
                 object_url = self.create_presigned_url(filepath)
@@ -117,7 +124,10 @@ class S3Client:
         :return: Presigned URL as string. If error, returns None.
         """
         try:
-            response = self.client.generate_presigned_url('get_object', Params={'Bucket': self.bucket, 'Key': object_name}, ExpiresIn=expiration)
+            response = self.client.generate_presigned_url('get_object',
+                                                          Params={'Bucket': self.bucket, 'Key': object_name},
+                                                          ExpiresIn=expiration)
+            logging.info(f"创建了有效期为 {expiration} 秒的对象预签名链接：{response}")
         except ClientError as e:
             logging.error(e)
             return None
