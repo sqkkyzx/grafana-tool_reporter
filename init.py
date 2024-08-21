@@ -127,3 +127,11 @@ def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], s
             **job_info
         ) for job_info in jobs_info
     ]
+
+
+def init_all():
+    grafana_client = init_grafana()
+    enable_notifiers = init_notifier()
+    s3_client = init_s3client()
+    job_list = init_jobslist(grafana_client, enable_notifiers, s3_client)
+    return grafana_client, enable_notifiers, s3_client, job_list

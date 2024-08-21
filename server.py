@@ -2,27 +2,23 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BlockingScheduler
 
-from init import init_grafana, init_notifier, init_s3client, init_jobslist
+from init import init_all
 from main import register_jobs, register_clean_job
 from grafana import RenderJob
 
-grafana_client = init_grafana()
-enable_notifiers = init_notifier()
-s3_client = init_s3client()
+
+# 初始化
+grafana_client, enable_notifiers, s3_client, job_list = init_all()
 
 
 @asynccontextmanager
 async def lifespan(myapp: FastAPI):
-    scheduler = AsyncIOScheduler()
+    scheduler = BlockingScheduler()
 
-    # 初始化
-    jobs = init_jobslist(grafana_client, enable_notifiers, s3_client)
-
-    register_jobs(scheduler, jobs)
+    register_jobs(scheduler, job_list)
     register_clean_job(scheduler)
 
     scheduler.start()
@@ -33,7 +29,6 @@ async def lifespan(myapp: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/files", StaticFiles(directory="files"), name="files")
 
 
 @app.post("/grafana")

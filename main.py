@@ -1,15 +1,13 @@
 import logging
 import os
 import time
-from datetime import datetime
 from typing import List
 
 from apscheduler.triggers.cron import CronTrigger
-# from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BlockingScheduler
 
 from grafana import RenderJob
-from init import read_yaml, init_grafana, init_notifier, init_s3client, init_jobslist
+from init import read_yaml, init_grafana, init_notifier, init_s3client, init_jobslist, init_all
 
 
 def register_jobs(scheduler: BlockingScheduler, jobs: List[RenderJob]):
@@ -42,25 +40,15 @@ def register_clean_job(scheduler: BlockingScheduler):
     )
 
 
-# def register_heartbeats(scheduler: BlockingScheduler):
-#     def heartbeets():
-#         print(f"心跳检测 - 系统运行正常 - 执行时间：{datetime.now()}")
-#     scheduler.add_job(heartbeets, 'interval', seconds=5)
-
-
 def main():
     scheduler = BlockingScheduler()
 
     # 初始化
-    grafana_client = init_grafana()
-    enable_notifiers = init_notifier()
-    s3_client = init_s3client()
-    jobs = init_jobslist(grafana_client, enable_notifiers, s3_client)
+    grafana_client, enable_notifiers, s3_client, job_list = init_all()
 
     # 注册任务
-    register_jobs(scheduler, jobs)
+    register_jobs(scheduler, job_list)
     register_clean_job(scheduler)
-    # register_heartbeats(scheduler)
 
     # 启动调度器
     scheduler.start()
