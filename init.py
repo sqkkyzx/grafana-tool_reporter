@@ -118,7 +118,7 @@ def init_s3client() -> S3Client:
 
 
 def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client) -> List[RenderJob]:
-    jobs_info = read_yaml('job.yaml').get('jobs')
+    jobs_info = read_yaml('job.yaml').get('grafana')
     return [
         RenderJob(
             grafana_client=grafana,
