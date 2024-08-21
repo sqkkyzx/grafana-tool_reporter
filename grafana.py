@@ -21,11 +21,14 @@ class Grafana:
 
     def validation(self):
         try:
+            logging.info("Grafana 配置验证：尝试连接中...")
             response = httpx.get(url=f'{self.public_url}/api/user', headers=self.headers)
             if response.status_code != 200:
-                raise Exception(f"验证失败: 无法访问 {self.public_url}. 请检查URL和令牌是否正确。")
+                raise Exception(f"Grafana 验证失败: 无法访问 {self.public_url}. 请检查URL和令牌是否正确。")
+            else:
+                logging.info(f"Grafana 配置验证：验证成功，登录账户为 {response.json().get('login')}")
         except httpx.RequestError as e:
-            raise Exception(f"验证失败: 连接到 {self.public_url} 时出现错误。错误信息: {str(e)}")
+            raise Exception(f"Grafana 验证失败: 连接到 {self.public_url} 时出现错误。错误信息: {str(e)}")
 
     def dashboard(self, uid):
         return Dashboard(self, uid)
@@ -38,7 +41,7 @@ class Dashboard:
         self.uid = uid
         self.title: Optional[str] = None
         self.url: Optional[str] = None
-        self.slug: Optional[str] = None
+        self.description: Optional[str] = None
 
         self.tags: Optional[List[str]] = None
         self.query: Optional[str] = 'kiosk'
@@ -54,7 +57,7 @@ class Dashboard:
 
         self.title = dashboard.get('title')
         self.url: str = f'{self.public_url}{meta.get('url')}?{self.query}'
-        self.slug = meta.get('slug')
+        self.description = meta.get('description')
         self.panels = [Panel(self, panel) for panel in dashboard.get('panels', [])]
 
     def panel(self, uid):
@@ -81,24 +84,26 @@ class Panel:
         self.uid = str(data.get('id'))
         self.title = dashboard.title + '-' + data.get('title')
         self.url = f'{dashboard.url}&viewPanel={self.uid}'
-        self.slug: Optional[str] = dashboard.slug
+        self.description: Optional[str] = dashboard.description
 
 
 class File:
-    def __init__(self, title, filepath, fileurl, viewurl, slug):
+    def __init__(self, title, filetype, filepath, fileurl, viewurl, description):
         self.title = title
+        self.filetype = filetype
         self.filepath = filepath
         self.fileurl = fileurl
         self.viewurl = viewurl
-        self.slug = slug
+        self.description = description
 
     def dict(self):
         return {
             'title': self.title,
+            'filetype': self.filetype,
             'filepath': self.filepath,
             'fileurl': self.fileurl,
             'viewurl': self.viewurl,
-            'slug': self.slug
+            'description': self.description
         }
 
 
@@ -137,7 +142,7 @@ class RenderJob:
             raise Exception(f'任务 {self.name} 的配置中缺少字段： {key}')
 
     def _get_page(self) -> Dashboard | Panel:
-        dashboard_uid = self._get_must_value(self.page_cfg, 'page')
+        dashboard_uid = self._get_must_value(self.page_cfg, 'dashboard_uid')
         panel_uid = self.page_cfg.get('panel_uid', None)
         query = self.page_cfg.get('query', 'kiosk')
 
@@ -195,6 +200,9 @@ class RenderJob:
         return sanitized_name
 
     def render_file(self) -> File | None:
+
+        logging.info(f'正在渲染页面：{self.page.url}?{self.page.query}')
+
         width = self.render_cfg.get('width', 792)
         filetype = self.render_cfg.get('filetype', 'png')
         if filetype not in ['png', 'pdf', 'csv', 'xlsx']:
@@ -240,8 +248,8 @@ class RenderJob:
                 browser.close()
         if self._check_path(filepath):
             fileurl = self.s3client.upload(filepath)
-            return File(title=self.page.title, filepath=filepath, fileurl=fileurl, viewurl=self.page.url,
-                        slug=self.page.slug)
+            return File(title=self.page.title, filetype=filetype, filepath=filepath, fileurl=fileurl, viewurl=self.page.url,
+                        description=self.page.description)
         else:
             return None
 

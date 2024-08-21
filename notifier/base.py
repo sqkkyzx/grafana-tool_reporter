@@ -8,7 +8,7 @@ class File(ABC):
     filepath: str
     fileurl: str
     viewurl: str
-    slug: str
+    description: str
 
 
 class BaseNotifier(ABC):
