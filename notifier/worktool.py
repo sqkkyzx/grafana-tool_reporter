@@ -21,7 +21,7 @@ class Worktool(BaseNotifier):
                 "objectName": F"{hexstring}.{file.filetype}",
                 "fileUrl": file.filepath,
                 "fileType": filetype,
-                "extraText": f"#{file.title}\n{file.slug}"
+                "extraText": f"#{file.title}\n{file.description}"
             }
             action_list.append(action)
 

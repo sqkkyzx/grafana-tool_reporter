@@ -11,21 +11,15 @@ class DingTalkWebhook(BaseNotifier):
 
     def send(self, file: File, receivers: List[str]):
         if file.filetype == 'png':
-            text = f"""
-            ### {file.title}
-            {file.slug}
-            ![{file.title}]({file.fileurl})
-            ---
-            [{file.viewurl}]({file.viewurl})
-            """
+            text = f"""### {file.title}\n\n\n
+{file.description}\n\n\n
+![{file.title}]({file.fileurl})\n\n\n
+> 页面源：[{file.viewurl}]({file.viewurl})"""
         else:
-            text = f"""
-            ### {file.title}
-            {file.slug}
-            [{file.fileurl}]({file.fileurl})
-            ---
-            [{file.viewurl}]({file.viewurl})
-            """
+            text = f"""### {file.title}\n\n
+{file.description}\n\n
+[{file.fileurl}]({file.fileurl})\n\n
+> 页面源：[{file.viewurl}]({file.viewurl})"""
         for receiver in receivers:
             httpx.post(
                 self.uri,
