@@ -92,6 +92,7 @@ def init_s3client() -> S3Client:
         env_public_url = os.getenv('S3_PUBLIC_URL')
         env_access_key_id = os.getenv('S3_ACCESS_KEY_ID')
         env_secret_access_key = os.getenv('S3_SECRET_ACCESS_KEY')
+        env_addressing_style = os.getenv('S3_ADDRESSING_STYLE')
 
         # 更新配置字典
         if env_region:
@@ -106,6 +107,8 @@ def init_s3client() -> S3Client:
             s3_config['access_key_id'] = env_access_key_id
         if env_secret_access_key:
             s3_config['secret_access_key'] = env_secret_access_key
+        if env_addressing_style:
+            s3_config['addressing_style'] = env_addressing_style
 
         # 创建并返回S3客户端
         return S3Client(**s3_config)

@@ -10,6 +10,7 @@ s3:
   endpoint_url:
   access_key_id:
   secret_access_key:
+  addressing_style: virtual  # path / virtual
 files:
   # 产生的临时文件保存天数，仅清理本地文件，S3文件请自行配置过期策略
   expiry_days: 2
