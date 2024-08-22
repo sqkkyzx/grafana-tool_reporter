@@ -82,7 +82,7 @@ class Panel:
         self.public_url = dashboard.public_url
         self.headers = dashboard.headers
         self.uid = str(data.get('id'))
-        self.title = dashboard.title + '-' + data.get('title')
+        self.title = f"{dashboard.title}-{data.get('title')}"
         self.url = f'{dashboard.url}&viewPanel={self.uid}'
         self.description: Optional[str] = dashboard.description
         print(self.title)
