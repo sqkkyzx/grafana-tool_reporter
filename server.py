@@ -6,19 +6,24 @@ from fastapi import FastAPI, Request
 from apscheduler.schedulers.background import BlockingScheduler
 
 from init import init_all
-from main import register_jobs, register_clean_job
+from main import register_jobs, register_clean_job, register_scripts
 from grafana import RenderJob
 
 
 # 初始化
-grafana_client, enable_notifiers, s3_client, job_list = init_all()
+grafana_client, enable_notifiers, s3_client, job_list, script_list = init_all()
 
 
 @asynccontextmanager
 async def lifespan(myapp: FastAPI):
     scheduler = BlockingScheduler()
 
-    register_jobs(scheduler, job_list)
+    # 注册任务
+    if job_list:
+        register_jobs(scheduler, job_list)
+    if script_list:
+        register_scripts(scheduler, script_list)
+
     register_clean_job(scheduler)
 
     scheduler.start()

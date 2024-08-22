@@ -120,25 +120,31 @@ def init_s3client() -> S3Client:
 
 def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client) -> List[RenderJob]:
     jobs_info = read_yaml('job.yaml').get('grafana')
-    return [
-        RenderJob(
-            grafana_client=grafana,
-            enable_notifiers=enable_notifiers,
-            s3client=s3client,
-            **job_info
-        ) for job_info in jobs_info
-    ]
+    if jobs_info:
+        return [
+            RenderJob(
+                grafana_client=grafana,
+                enable_notifiers=enable_notifiers,
+                s3client=s3client,
+                **job_info
+            ) for job_info in jobs_info
+        ]
+    else:
+        return []
 
 
 def init_scriptlist(enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client) -> List[Script]:
     scripts_info = read_yaml('job.yaml').get('script')
-    return [
-        Script(
-            enable_notifiers=enable_notifiers,
-            s3client=s3client,
-            **script_info
-        ) for script_info in scripts_info
-    ]
+    if scripts_info:
+        return [
+            Script(
+                enable_notifiers=enable_notifiers,
+                s3client=s3client,
+                **script_info
+            ) for script_info in scripts_info
+        ]
+    else:
+        return []
 
 
 def init_all():

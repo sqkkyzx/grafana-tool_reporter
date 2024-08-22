@@ -58,8 +58,10 @@ def main():
     grafana_client, enable_notifiers, s3_client, job_list, script_list = init_all()
 
     # 注册任务
-    register_jobs(scheduler, job_list)
-    register_scripts(scheduler, script_list)
+    if job_list:
+        register_jobs(scheduler, job_list)
+    if script_list:
+        register_scripts(scheduler, script_list)
 
     register_clean_job(scheduler)
 
