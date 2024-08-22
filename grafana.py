@@ -62,7 +62,7 @@ class Dashboard:
 
     def panel(self, uid):
         for p in self.panels:
-            if p.uid == uid:
+            if str(p.uid) == str(uid):
                 return p
         return None
 
@@ -85,6 +85,8 @@ class Panel:
         self.title = dashboard.title + '-' + data.get('title')
         self.url = f'{dashboard.url}&viewPanel={self.uid}'
         self.description: Optional[str] = dashboard.description
+        print(self.title)
+        print(self.url)
 
 
 class RenderJob:
@@ -181,7 +183,7 @@ class RenderJob:
 
     def render_file(self) -> File | None:
 
-        logging.info(f'正在渲染页面：{self.page.url}?{self.page.query}')
+        logging.info(f'正在渲染页面：{self.page.url}')
 
         width = self.render_cfg.get('width', 792)
         filetype = self.render_cfg.get('filetype', 'png')
