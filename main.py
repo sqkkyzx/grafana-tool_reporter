@@ -7,7 +7,8 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BlockingScheduler
 
 from grafana import RenderJob
-from init import read_yaml, init_grafana, init_notifier, init_s3client, init_jobslist, init_all
+from scripts import Script
+from init import read_yaml, init_all
 
 
 def register_jobs(scheduler: BlockingScheduler, jobs: List[RenderJob]):
@@ -17,7 +18,17 @@ def register_jobs(scheduler: BlockingScheduler, jobs: List[RenderJob]):
             logging.info(f"任务 {job.name} 已添加，执行计划：{job.crontab_cfg}")
         except Exception as e:
             logging.debug(e)
-            raise f"任务 {job} 添加失败。"
+            raise f"任务 {job.name} 添加失败。"
+
+
+def register_scripts(scheduler: BlockingScheduler, script_list: List[Script]):
+    for script in script_list:
+        try:
+            scheduler.add_job(func=script.notice, trigger=CronTrigger.from_crontab(script.crontab_cfg),)
+            logging.info(f"任务 {script.name} 已添加，执行计划：{script.crontab_cfg}")
+        except Exception as e:
+            logging.debug(e)
+            raise f"任务 {script.name} 添加失败。"
 
 
 def register_clean_job(scheduler: BlockingScheduler):
@@ -44,10 +55,12 @@ def main():
     scheduler = BlockingScheduler()
 
     # 初始化
-    grafana_client, enable_notifiers, s3_client, job_list = init_all()
+    grafana_client, enable_notifiers, s3_client, job_list, script_list = init_all()
 
     # 注册任务
     register_jobs(scheduler, job_list)
+    register_scripts(scheduler, script_list)
+
     register_clean_job(scheduler)
 
     # 启动调度器

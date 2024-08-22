@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import re
 
-from notifier import BaseNotifier
+from notifier import BaseNotifier, File
 from s3 import S3Client
 
 
@@ -85,26 +85,6 @@ class Panel:
         self.title = dashboard.title + '-' + data.get('title')
         self.url = f'{dashboard.url}&viewPanel={self.uid}'
         self.description: Optional[str] = dashboard.description
-
-
-class File:
-    def __init__(self, title, filetype, filepath, fileurl, viewurl, description):
-        self.title = title
-        self.filetype = filetype
-        self.filepath = filepath
-        self.fileurl = fileurl
-        self.viewurl = viewurl
-        self.description = description
-
-    def dict(self):
-        return {
-            'title': self.title,
-            'filetype': self.filetype,
-            'filepath': self.filepath,
-            'fileurl': self.fileurl,
-            'viewurl': self.viewurl,
-            'description': self.description
-        }
 
 
 class RenderJob:

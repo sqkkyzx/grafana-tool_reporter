@@ -8,6 +8,7 @@ from grafana import Grafana, RenderJob
 from s3 import S3Client
 import notifier
 from notifier import BaseNotifier
+from scripts import Script
 
 
 def read_yaml(cfgfile):
@@ -129,9 +130,21 @@ def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], s
     ]
 
 
+def init_scriptlist(enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client) -> List[Script]:
+    scripts_info = read_yaml('job.yaml').get('script')
+    return [
+        Script(
+            enable_notifiers=enable_notifiers,
+            s3client=s3client,
+            **script_info
+        ) for script_info in scripts_info
+    ]
+
+
 def init_all():
     grafana_client = init_grafana()
     enable_notifiers = init_notifier()
     s3_client = init_s3client()
     job_list = init_jobslist(grafana_client, enable_notifiers, s3_client)
-    return grafana_client, enable_notifiers, s3_client, job_list
+    script_list = init_scriptlist(enable_notifiers, s3_client)
+    return grafana_client, enable_notifiers, s3_client, job_list, script_list

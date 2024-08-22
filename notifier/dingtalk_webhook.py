@@ -1,5 +1,5 @@
 from typing import List
-from .base import BaseNotifier, File
+from . import BaseNotifier, File
 import httpx
 
 

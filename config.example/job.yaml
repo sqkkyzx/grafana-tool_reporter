@@ -33,3 +33,13 @@ grafana:
       receiver:
         - 杰哥
         - 产品测试群
+
+script:
+  - name: test-script
+    scriptfile: dayreport.py
+    crontab: 0 0 * * *
+    notifier:
+      type: DingTalkWebhook
+      receiver:
+        - 杰哥
+        - 产品测试群
