@@ -10,3 +10,4 @@ botocore
 # Just For Run As Server
 fastapi
 uvicorn
+openai

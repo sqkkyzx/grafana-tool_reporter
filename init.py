@@ -4,11 +4,14 @@ from typing import Dict, List
 
 import yaml
 import logging
+
+from ai import api_key
 from grafana import Grafana, RenderJob
 from s3 import S3Client
 import notifier
 from notifier import BaseNotifier
 from scripts import Script
+from openai import OpenAI
 
 
 def read_yaml(cfgfile):
@@ -118,7 +121,34 @@ def init_s3client() -> S3Client:
         raise e
 
 
-def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client) -> List[RenderJob]:
+def init_openai() -> OpenAI | None:
+    try:
+        # 读取配置文件
+        openai_config: dict = read_yaml('config.yaml').get('openai', {})
+
+        # 从环境变量中获取S3配置，优先使用环境变量
+        env_api_key = os.getenv('OPENAI_API_KEY')
+        env_base_url = os.getenv('OPENAI_BASE_URL')
+
+        # 更新配置字典
+        if env_api_key:
+            openai_config['api_key'] = env_api_key
+        if env_base_url:
+            openai_config['base_url'] = env_base_url
+
+        # 创建并返回S3客户端
+        if openai_config.get('base_url'):
+            return OpenAI(**openai_config)
+        else:
+            return OpenAI(api_key=openai_config.get('api_key'))
+
+    except Exception as e:
+        logging.debug(e)
+        logging.warning('未配置OPENAI')
+        return None
+
+
+def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client, openai: OpenAI) -> List[RenderJob]:
     jobs_info = read_yaml('job.yaml').get('grafana')
     if jobs_info:
         return [
@@ -126,6 +156,7 @@ def init_jobslist(grafana: Grafana, enable_notifiers: Dict[str, BaseNotifier], s
                 grafana_client=grafana,
                 enable_notifiers=enable_notifiers,
                 s3client=s3client,
+                openai=openai,
                 **job_info
             ) for job_info in jobs_info
         ]
@@ -151,6 +182,7 @@ def init_all():
     grafana_client = init_grafana()
     enable_notifiers = init_notifier()
     s3_client = init_s3client()
-    job_list = init_jobslist(grafana_client, enable_notifiers, s3_client)
+    openai_client = init_openai()
+    job_list = init_jobslist(grafana_client, enable_notifiers, s3_client, openai_client)
     script_list = init_scriptlist(enable_notifiers, s3_client)
     return grafana_client, enable_notifiers, s3_client, job_list, script_list

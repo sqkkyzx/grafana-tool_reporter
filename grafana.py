@@ -10,6 +10,7 @@ import re
 
 from notifier import BaseNotifier, File
 from s3 import S3Client
+from openai import OpenAI
 
 
 class Grafana:
@@ -94,11 +95,13 @@ class Panel:
 
 class RenderJob:
     def __init__(self, grafana_client: Grafana, enable_notifiers: Dict[str, BaseNotifier], s3client: S3Client,
+                 openai: OpenAI | None,
                  **kwargs  # 使用 **job_info 传入
                  ):
         self.grafana_client: Grafana = grafana_client
         self.enable_notifiers: Dict[str, BaseNotifier] = enable_notifiers
         self.s3client: S3Client = s3client
+        self.openai: OpenAI | None = openai
 
         self.name: str = kwargs.get('name', 'UnnamedJob')
 
@@ -188,6 +191,21 @@ class RenderJob:
             sanitized_name = sanitized_name[:max_length]
         return sanitized_name
 
+    def _aidesc(self, imgurl, text):
+        if imgurl:
+            content = [
+                {"type": "text", "text": "你是一个数据分析专家，你对企业经营、IT运维等领域有着丰富的经验。请对这张数据截图做出你的分析建议。"},
+                {"type": "image_url", "image_url": {"url": imgurl}},
+            ]
+            response = self.openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": content}],
+                max_tokens=300,
+            )
+            return response.choices[0].message.content
+        else:
+            return None
+
     def render_file(self) -> File | None:
 
         logging.info(f'正在渲染页面：{self.page.url}')
@@ -238,8 +256,12 @@ class RenderJob:
         if self._check_path(filepath):
             fileurl = self.s3client.upload(filepath)
             viewurl = self.page.creatShortUrl()
+            if self.openai and self.page.description is None and filetype == 'png':
+                description = self._aidesc(fileurl, None)
+            else:
+                description = self.page.description
             return File(title=self.page.title, filetype=filetype, filepath=filepath, fileurl=fileurl, viewurl=viewurl,
-                        description=self.page.description)
+                        description=description)
         else:
             return None
 
