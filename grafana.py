@@ -70,6 +70,7 @@ class Dashboard:
     def set_query(self, query_string: str | None = None):
         if query_string:
             self.query = query_string
+            self.url: str = f'{self.url.split('?')[0]}?{self.query}'
         return self
 
     def creatShortUrl(self):
