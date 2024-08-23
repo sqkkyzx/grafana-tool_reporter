@@ -5,7 +5,6 @@ from typing import Dict, List
 import yaml
 import logging
 
-from ai import api_key
 from grafana import Grafana, RenderJob
 from s3 import S3Client
 import notifier
