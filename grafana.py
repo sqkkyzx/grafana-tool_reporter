@@ -71,7 +71,7 @@ class Dashboard:
             self.query = query_string
         return self
 
-    async def creatShortUrl(self):
+    def creatShortUrl(self):
         uid = httpx.post(url=f'{self.public_url}/api/short-urls', headers=self.headers,
                          json={"path": self.url.replace(f'{self.public_url}/', '')}).json().get('uid')
         return f'{self.public_url}/goto/{uid}'
@@ -86,7 +86,7 @@ class Panel:
         self.url = f'{dashboard.url}&viewPanel={self.uid}'
         self.description: Optional[str] = dashboard.description
 
-    async def creatShortUrl(self):
+    def creatShortUrl(self):
         uid = httpx.post(url=f'{self.public_url}/api/short-urls', headers=self.headers,
                          json={"path": self.url.replace(f'{self.public_url}/', '')}).json().get('uid')
         return f'{self.public_url}/goto/{uid}'
@@ -169,6 +169,9 @@ class RenderJob:
         # 获取到 .react-grid-layout 的高度并加 50 作为真实高度，然后重新设置窗口大小
         height = page.evaluate("document.querySelector('.react-grid-layout').offsetHeight") + 50
         page.set_viewport_size({"width": width, "height": height})
+
+        # 重新进入页面
+        page.goto(url)
         page.wait_for_load_state('networkidle')
 
         return page
