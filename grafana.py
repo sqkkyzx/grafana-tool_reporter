@@ -85,8 +85,11 @@ class Panel:
         self.title = f"{dashboard.title}-{data.get('title')}"
         self.url = f'{dashboard.url}&viewPanel={self.uid}'
         self.description: Optional[str] = dashboard.description
-        print(self.title)
-        print(self.url)
+
+    async def creatShortUrl(self):
+        uid = httpx.post(url=f'{self.public_url}/api/short-urls', headers=self.headers,
+                         json={"path": self.url.replace(f'{self.public_url}/', '')}).json().get('uid')
+        return f'{self.public_url}/goto/{uid}'
 
 
 class RenderJob:
@@ -166,6 +169,7 @@ class RenderJob:
         # 获取到 .react-grid-layout 的高度并加 50 作为真实高度，然后重新设置窗口大小
         height = page.evaluate("document.querySelector('.react-grid-layout').offsetHeight") + 50
         page.set_viewport_size({"width": width, "height": height})
+        page.wait_for_load_state('networkidle')
 
         return page
 
@@ -230,7 +234,8 @@ class RenderJob:
                 browser.close()
         if self._check_path(filepath):
             fileurl = self.s3client.upload(filepath)
-            return File(title=self.page.title, filetype=filetype, filepath=filepath, fileurl=fileurl, viewurl=self.page.url,
+            viewurl = self.page.creatShortUrl()
+            return File(title=self.page.title, filetype=filetype, filepath=filepath, fileurl=fileurl, viewurl=viewurl,
                         description=self.page.description)
         else:
             return None
