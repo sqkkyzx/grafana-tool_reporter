@@ -192,10 +192,10 @@ class RenderJob:
             sanitized_name = sanitized_name[:max_length]
         return sanitized_name
 
-    def _aidesc(self, imgurl, text):
+    def _aidesc(self, imgurl, prompt):
         if imgurl:
             content = [
-                {"type": "text", "text": "你是一个数据分析专家，你对企业经营、IT运维等领域有着丰富的经验。请对这张数据截图做出你的分析建议。"},
+                {"type": "text", "text": F"你是一个数据分析专家，请对这张数据截图做出你的分析。这张图的用途(描述)是：{prompt}"},
                 {"type": "image_url", "image_url": {"url": imgurl}},
             ]
             response = self.openai.chat.completions.create(
@@ -257,8 +257,8 @@ class RenderJob:
         if self._check_path(filepath):
             fileurl = self.s3client.upload(filepath)
             viewurl = self.page.creatShortUrl()
-            if self.openai and self.page.description is None and filetype == 'png':
-                description = self._aidesc(fileurl, None)
+            if self.openai and '[AI]' in self.page.description and filetype == 'png':
+                description = self._aidesc(fileurl, self.page.description.replace('[AI]', ''))
             else:
                 description = self.page.description
             return File(title=self.page.title, filetype=filetype, filepath=filepath, fileurl=fileurl, viewurl=viewurl,
