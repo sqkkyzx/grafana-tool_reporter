@@ -5,27 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bba620e2-a253-49d2-859f-f03f9fbca88a" name="更改" comment=".">
-      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dockerfile-server" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.example/config.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.example/job.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.example/notifier.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/.gitkeep" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/custom_scripts/.gitkeep" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/grafana.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/init.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notifier/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/notifier/baseclass.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/notifier/dingtalk_app.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/notifier/dingtalk_webhook.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/notifier/gotify.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/notifier/worktool.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/s3.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/server.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,8 +77,8 @@
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" show_stripe_button="false" />
       <window_info id="Learn" show_stripe_button="false" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.19372293" />
-      <window_info id="Commit" order="1" weight="0.19355743" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.3300866" />
+      <window_info id="Commit" order="1" weight="0.3300866" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Database Changes" show_stripe_button="false" />
       <window_info anchor="bottom" id="TypeScript" show_stripe_button="false" />
@@ -789,7 +769,15 @@
       <option name="project" value="LOCAL" />
       <updated>1724481742488</updated>
     </task>
-    <option name="localTasksCounter" value="47" />
+    <task id="LOCAL-00047" summary=".">
+      <option name="closed" value="true" />
+      <created>1729036082048</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1729036082048</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
