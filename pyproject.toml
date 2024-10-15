@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "grafana-tool-reporter"
+version = "0.1.0"
+description = ""
+authors = ["YiZixuan <sqkkyzx@qq.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+playwright = "^1.47.0"
+pandas = "^2.2.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -2,12 +2,9 @@ playwright
 httpx
 pandas
 openpyxl
-PyYAML
-APScheduler
 boto3
 botocore
 
 # Just For Run As Server
 fastapi
 uvicorn
-openai
