@@ -13,7 +13,7 @@ import uvicorn
 from botocore.client import Config, BaseClient
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
 from fastapi import FastAPI
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from pydantic import BaseModel, Field
 
 
@@ -22,11 +22,11 @@ app = FastAPI()
 
 class Payload(BaseModel):
     dashboard_uid: str = Field(description="Dashboard UID")
-    panel_uid: str = Field(description="Panel UID")
-    query_string: str = Field(description="Query String")
+    panel_uid: str|None = Field(default=None, description="Panel UID")
+    query_string: str|None = Field(default=None, description="Query String")
 
     render_type: Literal['jpg', 'xlsx', 'png'] = Field(default='png', description="Render Type")
-    render_width: int = Field(description="Render Width")
+    render_width: int = Field(default=796, description="Render Width")
 
     base_url: str = Field(default=os.getenv("GF_URL"), description="Grafana URL")
     service_token: str = Field(default=os.getenv("GF_TOKEN"), description="Grafana Token")
@@ -39,7 +39,8 @@ async def render(data: Payload):
         page=grafana.dashboard(data.dashboard_uid).set_query(data.query_string).panel(data.panel_uid)
     else:
         page=grafana.dashboard(data.dashboard_uid).set_query(data.query_string)
-    return page.render(data.render_type, data.render_width)
+
+    return await page.render(data.render_type, data.render_width)
 
 
 class Grafana:
@@ -131,7 +132,7 @@ class Dashboard:
         return f'{self.base_url}/goto/{uid}'
 
     def render(self, render_type: Literal['jpg', 'xlsx', 'png'], render_width: int):
-        return Render(self, render_type, render_width)
+        return Render(self, render_type, render_width).render_file()
 
 
 class Panel:
@@ -149,7 +150,7 @@ class Panel:
         return f'{self.base_url}/goto/{uid}'
 
     def render(self, render_type: Literal['jpg', 'xlsx', 'png'], render_width: int):
-        return Render(self, render_type, render_width)
+        return Render(self, render_type, render_width).render_file()
 
 
 class Render:
@@ -167,21 +168,21 @@ class Render:
             return False
 
     @staticmethod
-    def _open_page(browser, url, headers, width):
-        browser_page = browser.new_page()
-        browser_page.set_extra_http_headers(headers)
-        browser_page.set_viewport_size({"width": width, "height": 400})
+    async def _open_page(browser, url, headers, width):
+        browser_page = await browser.new_page()
+        await browser_page.set_extra_http_headers(headers)
+        await browser_page.set_viewport_size({"width": width, "height": 400})
 
-        browser_page.goto(url)
-        browser_page.wait_for_load_state('networkidle')
+        await browser_page.goto(url)
+        await browser_page.wait_for_load_state('networkidle')
 
         # 获取到 .react-grid-layout 的高度并加 50 作为真实高度，然后重新设置窗口大小
-        height = browser_page.evaluate("document.querySelector('.react-grid-layout').offsetHeight") + 50
-        browser_page.set_viewport_size({"width": width, "height": height})
+        height = await browser_page.evaluate("document.querySelector('.react-grid-layout').offsetHeight") + 50
+        await browser_page.set_viewport_size({"width": width, "height": height})
 
         # 重新进入页面
-        browser_page.goto(url)
-        browser_page.wait_for_load_state('networkidle')
+        await browser_page.goto(url)
+        await browser_page.wait_for_load_state('networkidle')
 
         return browser_page
 
@@ -197,7 +198,7 @@ class Render:
             sanitized_name = sanitized_name[:max_length]
         return sanitized_name
 
-    def render_file(self) -> Dict | None:
+    async def render_file(self) -> Dict | None:
 
         logging.info(f'正在渲染页面：{self.page.url}')
 
@@ -209,19 +210,19 @@ class Render:
 
         filepath = f"files/{self._sanitize_filename(self.page.title)}_{str(time.time_ns())}.{self.render_type}"
 
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch()
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
             try:
                 if self.render_type == 'png':
-                    browser_page = self._open_page(browser, self.page.url, self.page.headers, self.render_width)
-                    browser_page.screenshot(path=filepath, full_page=True, type="png")
+                    browser_page = await self._open_page(browser, self.page.url, self.page.headers, self.render_width)
+                    await browser_page.screenshot(path=filepath, full_page=True, type="png")
                 elif self.render_type == 'pdf':
-                    browser_page = self._open_page(browser, self.page.url, self.page.headers, self.render_width)
+                    browser_page = await self._open_page(browser, self.page.url, self.page.headers, self.render_width)
                     # 根据窗口尺寸计算纸张毫米单位
                     # ⚠ 此处 3.77 由实际调试得到，不同设备是否存在影响尚未得到证实
-                    width = int(browser_page.viewport_size.get('width') / 3.77)
-                    height = int(browser_page.viewport_size.get('height') / 3.77)
-                    browser_page.pdf(path=filepath, print_background=True, width=f'{width}mm', height=f'{height}mm')
+                    width = int(await browser_page.viewport_size.get('width') / 3.77)
+                    height = int(await browser_page.viewport_size.get('height') / 3.77)
+                    await browser_page.pdf(path=filepath, print_background=True, width=f'{width}mm', height=f'{height}mm')
                 else:  # 将会匹配 filetype in ['xlsx', 'csv']
                     # 如果页面不是 Panel 则跳过打开页面
                     if not isinstance(self.page, Panel):
@@ -230,18 +231,21 @@ class Render:
                         browser_page = self._open_page(browser, self.page.url, self.page.headers, self.render_width)
                         # 无论是否导出 xlsx 都需要先导出 csv
                         csv_filepath = filepath.replace('.xlsx', '.csv')
-                        span = browser_page.query_selector('span:text("下载 CSV")')
+
+
+                        span = await browser_page.query_selector('span:text("下载 CSV")')
                         if span:
-                            with browser_page.expect_download() as download_info:
-                                span.click()
-                            download = download_info.value
-                            download.save_as(csv_filepath)
+                            async with browser_page.expect_download() as download_info:
+                                await span.click()
+                            download = await download_info.value
+                            await download.save_as(csv_filepath)
+
                         # 如果需要 xlsx 则将 csv 转换为 xlsx
                         if self.render_type == 'xlsx':
                             dataframe = pd.read_csv(csv_filepath, encoding='utf-8')
                             dataframe.to_excel(filepath, index=False, engine='openpyxl')
             finally:
-                browser.close()
+                await browser.close()
 
         if self._check_path(filepath):
             file_url = S3Client().upload(filepath)
