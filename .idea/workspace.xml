@@ -403,15 +403,7 @@
       <workItem from="1729033827224" duration="1451000" />
       <workItem from="1729637973402" duration="9000" />
       <workItem from="1729638530530" duration="632000" />
-      <workItem from="1729639245184" duration="1252000" />
-    </task>
-    <task id="LOCAL-00001" summary=".初始提交">
-      <option name="closed" value="true" />
-      <created>1723934062274</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1723934062274</updated>
+      <workItem from="1729639245184" duration="1281000" />
     </task>
     <task id="LOCAL-00002" summary="修正返回值拼写错误">
       <option name="closed" value="true" />
@@ -797,7 +789,15 @@
       <option name="project" value="LOCAL" />
       <updated>1729640489178</updated>
     </task>
-    <option name="localTasksCounter" value="50" />
+    <task id="LOCAL-00050" summary=".">
+      <option name="closed" value="true" />
+      <created>1729640519982</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1729640519982</updated>
+    </task>
+    <option name="localTasksCounter" value="51" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
